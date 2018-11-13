@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongo-create-users
+spec:
+  template:
+    spec:
+      containers:
+      - name: mongo-users
+        image: mongo:3.4
+        command:
+          - sleep
+          - "360"
+#          - mongo
+#          - --host
+#          -  mongo 
+#          - '<'
+#          - /etc/mongo-scripts/mongo-users.cmd
+        volumeMounts:
+          - name: mongo-users
+            mountPath: /etc/mongo-scripts
+      restartPolicy: Never
+      volumes:
+        - name: mongo-users
+          configMap:
+            name: mongo-users
+            items:
+              - key: mongo-users
+                path: mongo-users.cmd
+  backoffLimit: 4
+  

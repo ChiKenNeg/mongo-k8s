@@ -1,0 +1,79 @@
+## Generate a key
+# openssl rand -base64 741 > mongodb-keyfile
+## Create k8s secrets
+# kubectl create secrKUBERNETES_MONGO_SERVICE_NAMEet generic mongo-key --from-file=mongodb-keyfile
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  labels:
+    name: mongo
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+  clusterIP: None
+  selector:
+    role: mongo
+---
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: mongo
+spec:
+  serviceName: "mongo"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        role: mongo
+        environment: test
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: mongodb
+          image: mongo:3.4
+#          env:
+#            - name: MONGO_INITDB_ROOT_USERNAME
+#              valueFrom:
+#                secretKeyRef:
+#                  name: mongo-credentials
+#                  key: username
+#            - name: MONGO_INITDB_ROOT_PASSWORD
+#              valueFrom:
+#                secretKeyRef:
+#                  name: mongo-credentials
+#                  key: password
+          command:
+            - mongod
+            - "--replSet"
+            - rs0
+            - "--smallfiles"
+            - "--noprealloc"
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: mongo-persistent-storage
+              mountPath: /data/db
+        - name: mongo-sidecar
+          image: cvallance/mongo-k8s-sidecar
+          env:
+            - name: MONGO_SIDECAR_POD_LABELS
+              value: "role=mongo,environment=test"
+            - name: KUBERNETES_MONGO_SERVICE_NAME
+              value: "mongo"
+#            - name: MONGODB_USERNAME
+#              value: admin
+#            - name: MONGODB_PASSWORD
+#              value: password
+#            - name: MONGODB_DATABASE
+#              value: admin
+  volumeClaimTemplates:
+  - metadata:
+      name: mongo-persistent-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Gi
